@@ -17,7 +17,10 @@ public class AcoApplication extends Application {
         stage.getIcons().add(new Image(Objects.requireNonNull(AcoApplication.class.getResourceAsStream("ant.png"))));
         stage.setTitle("Ant colony optimization");
         stage.setWidth(840);
+        stage.setMinWidth(840);
+        stage.setMaxWidth(840);
         stage.setHeight(600);
+        stage.setMinHeight(600);
         stage.setScene(scene);
         stage.show();
     }

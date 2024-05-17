@@ -1,5 +1,7 @@
 package org.hse.aco.algorithm.fuzzy;
 
+import javafx.application.Platform;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.util.Pair;
 import org.hse.aco.algorithm.fuzzy.dto.Ant;
 import org.hse.aco.algorithm.fuzzy.dto.IterationSolutions;
@@ -18,13 +20,18 @@ import java.time.Instant;
 import java.util.*;
 
 import static org.hse.aco.controller.StartAlgorithmController.*;
+import static org.hse.aco.model.DistanceFunction.COSINE;
 
 public class FuzzyAlgorithm {
+    public static SimpleStringProperty iterationResultObservable = new SimpleStringProperty();
+
     private final DatasetLoader datasetLoader = new DatasetLoader();
 
     private final boolean idealClustering = false;
 
     public ClusteringResult clusterDocuments() throws Exception {
+        initClusteringText();
+
         List<Document> dataset = datasetLoader.loadDataset();
         int documentsNumber = dataset.size();
         int alphabetSize = dataset.get(0).getAlphabetSize();
@@ -66,6 +73,7 @@ public class FuzzyAlgorithm {
             var bestSolution = iterationSolutions.getBestSolution();
             updatePheromones(pheromone, bestSolution);
 
+            displayIterationResultText(iteration, bestSolution, globalBestSolution);
             Logger.debug("Best objective function of iteration " + iteration + " is " + bestSolution.fitness);
             Logger.debug("Best solution of iteration " + iteration + " is " + Arrays.toString(bestSolution.assignedClusters) + "\n");
 
@@ -78,14 +86,67 @@ public class FuzzyAlgorithm {
                 iterationsWithoutImprovement = -1;
             }
         }
-        var endTime = Instant.now();
+        var duration = Duration.between(startTime, Instant.now()).toMillis();
 
         Logger.info("Finishing at iteration = " + iteration + " after " + iterationsWithoutImprovement + " iterations without improvement");
-        Logger.info("Algorithm execution time is " + Duration.between(startTime, endTime).toMillis() + " milliseconds\n");
+        Logger.info("Algorithm execution time is " + duration + " milliseconds\n");
         Logger.info("Final objective function is " + globalBestSolution.fitness);
         outputPheromoneMatrix(pheromone);
 
-        return getClusteringResult(documentsNumber, globalBestSolution.assignedClusters, dataset);
+        var clusteringResult = getClusteringResult(documentsNumber, globalBestSolution.assignedClusters, dataset);
+        displayClusteringResult(dataset, clusteringResult, iteration, iterationsWithoutImprovement, duration, globalBestSolution.fitness);
+        return clusteringResult;
+    }
+
+    private void initClusteringText() {
+        Platform.runLater(() -> iterationResultObservable.set("Running fuzzy clustering:"));
+    }
+
+    private void displayIterationResultText(int iteration, Solution bestSolution, Solution globalBestSolution) {
+        String solutionMeasurement = "*Solution is evaluated using ";
+        if (DISTANCE_FUNCTION == COSINE) {
+            solutionMeasurement += "the mean of intracluster cosine similarity, ranging from 0 (opposite vectors, worst) " +
+                    "to 2 (codirectional vectors, best)";
+        } else {
+            solutionMeasurement += "the mean of intracluster euclidean distance (the lower, the better)";
+        }
+
+        var globalBest = globalBestSolution.fitness != null ? globalBestSolution.fitness.setScale(4, RoundingMode.HALF_UP) : null;
+        String finalSolutionMeasurement = solutionMeasurement;
+        Platform.runLater(() -> iterationResultObservable.set(
+                "Running fuzzy clustering:\n" +
+                        "Iteration = " + iteration + ", iteration best solution ~ " + bestSolution.fitness.setScale(4, RoundingMode.HALF_UP) +
+                        ", global best solution ~ " + globalBest + "\n\n" + finalSolutionMeasurement
+        ));
+    }
+
+    private void displayClusteringResult(
+            List<Document> dataset,
+            ClusteringResult clusteringResult,
+            int iteration,
+            int iterationsWithoutImprovement,
+            long duration,
+            BigDecimal globalBestSolution
+    ) {
+        StringBuilder clustersDocs = new StringBuilder();
+        for (var cluster : clusteringResult.getClusters()) {
+            List<String> documentNames = new ArrayList<>();
+            for (var documentId : cluster.documentIds) {
+                documentNames.add(dataset.get(documentId).name);
+            }
+            clustersDocs.append("Cluster ").append(cluster.id).append(" contains ").append(cluster.getSize()).append(" documents: ").append(documentNames).append("\n");
+        }
+
+        StringBuilder clusteringMetrics = new StringBuilder();
+        clusteringMetrics.append("Accuracy = ").append(clusteringResult.getAccuracy().setScale(2, RoundingMode.HALF_UP))
+                .append("%, F-measure = ").append(clusteringResult.getFMeasure().setScale(2, RoundingMode.HALF_UP))
+                .append(", Purity = ").append(clusteringResult.getPurity().setScale(2, RoundingMode.HALF_UP)).append("%");
+
+        Platform.runLater(() -> iterationResultObservable.set(
+                "Fuzzy clustering finished at iteration = " + iteration + " after " + iterationsWithoutImprovement + " iterations without improvement\n" +
+                        "Algorithm execution time is " + duration + " milliseconds\n" +
+                        "Global best solution ~ " + globalBestSolution.setScale(4, RoundingMode.HALF_UP) + "\n\n" + clustersDocs + "\n" + clusteringMetrics
+        ));
     }
 
     private static void updatePheromones(Map<Pair<Integer, Integer>, BigDecimal> pheromone, Solution solution) {

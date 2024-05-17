@@ -13,10 +13,20 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.hse.aco.controller.StartAlgorithmController.DATASET_FILE;
+
 public class DatasetLoader {
     public List<Document> loadDataset() throws Exception {
-        var fileName = "org/hse/aco/dataset/svd_TFIDF2by50.csv";
-        Path path = Paths.get(ClassLoader.getSystemResource(fileName).toURI());
+        String fileName;
+        Path path;
+        if (DATASET_FILE != null) {
+            fileName = DATASET_FILE.getName();
+            path = Path.of(DATASET_FILE.getPath());
+        } else {
+            fileName = "svd_TFIDF2by50.csv";
+            path = Paths.get(ClassLoader.getSystemResource("org/hse/aco/dataset/" + fileName).toURI());
+        }
+
         var documentId = -1;
         List<Document> documents = new ArrayList<>();
         var csvLines = readAllCsvLines(path);

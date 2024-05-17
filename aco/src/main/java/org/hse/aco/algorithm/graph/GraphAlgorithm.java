@@ -1,5 +1,7 @@
 package org.hse.aco.algorithm.graph;
 
+import javafx.application.Platform;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.util.Pair;
 import org.hse.aco.algorithm.graph.dto.Ant;
 import org.hse.aco.algorithm.graph.dto.IterationResult;
@@ -24,6 +26,8 @@ import static org.hse.aco.model.DistanceFunction.COSINE;
 import static org.hse.aco.model.DistanceFunction.EUCLIDEAN;
 
 public class GraphAlgorithm {
+    public static SimpleStringProperty iterationResultObservable = new SimpleStringProperty();
+
     private final DatasetLoader datasetLoader = new DatasetLoader();
 
     private Map<Pair<Integer, Integer>, BigDecimal> calculatedDistances;
@@ -39,6 +43,8 @@ public class GraphAlgorithm {
     private int alphabetSize;
 
     public ClusteringResult clusterDocuments() throws Exception {
+        initClusteringText();
+
         List<Document> dataset = datasetLoader.loadDataset();
         alphabetSize = dataset.get(0).getAlphabetSize();
         int documentsNumber = dataset.size();
@@ -59,11 +65,66 @@ public class GraphAlgorithm {
             increasePheromone(ants, pheromone);
             var iterationResult = calculateResult(pheromone, documentsNumber, dataset);
 
+            displayIterationResultText(iteration, iterationResult, bestResult);
             Logger.debug("After iteration " + iteration + " average distance to cluster centroid is " + iterationResult.result() + ", skipping " + iterationResult.skippedEdgesNumber() + " edges");
+
             checkStoppingCriteria(iterationResult, iteration);
         }
         var duration = Duration.between(startTime, Instant.now()).toMillis();
-        return getClusteringResult(dataset, iteration, duration);
+        var clusteringResult = getClusteringResult(dataset, iteration, duration);
+        displayClusteringResult(dataset, clusteringResult, iteration, iterationsWithoutImprovement, duration, bestResult);
+        return clusteringResult;
+    }
+
+    private void initClusteringText() {
+        Platform.runLater(() -> iterationResultObservable.set("Running graph clustering:"));
+    }
+
+    private void displayIterationResultText(int iteration, IterationResult iterationResult, BigDecimal bestResult) {
+        String solutionMeasurement = "*Solution is evaluated using ";
+        if (DISTANCE_FUNCTION == COSINE) {
+            solutionMeasurement += "the mean of intracluster cosine similarity, ranging from 0 (opposite vectors, worst) " +
+                    "to 2 (codirectional vectors, best)";
+        } else {
+            solutionMeasurement += "the mean of intracluster euclidean distance (the lower, the better)";
+        }
+
+        var globalBest = bestResult != null ? bestResult.setScale(4, RoundingMode.HALF_UP) : null;
+        String finalSolutionMeasurement = solutionMeasurement;
+        Platform.runLater(() -> iterationResultObservable.set(
+                "Running graph clustering:\n" +
+                        "Iteration = " + iteration + ", iteration best solution ~ " + iterationResult.result().setScale(4, RoundingMode.HALF_UP) +
+                        ", global best solution ~ " + globalBest + "\n\n" + finalSolutionMeasurement
+        ));
+    }
+
+    private void displayClusteringResult(
+            List<Document> dataset,
+            ClusteringResult clusteringResult,
+            int iteration,
+            int iterationsWithoutImprovement,
+            long duration,
+            BigDecimal globalBestSolution
+    ) {
+        StringBuilder clustersDocs = new StringBuilder();
+        for (var cluster : clusteringResult.getClusters()) {
+            List<String> documentNames = new ArrayList<>();
+            for (var documentId : cluster.documentIds) {
+                documentNames.add(dataset.get(documentId).name);
+            }
+            clustersDocs.append("Cluster ").append(cluster.id).append(" contains ").append(cluster.getSize()).append(" documents: ").append(documentNames).append("\n");
+        }
+
+        StringBuilder clusteringMetrics = new StringBuilder();
+        clusteringMetrics.append("Accuracy = ").append(clusteringResult.getAccuracy().setScale(2, RoundingMode.HALF_UP))
+                .append("%, F-measure = ").append(clusteringResult.getFMeasure().setScale(2, RoundingMode.HALF_UP))
+                .append(", Purity = ").append(clusteringResult.getPurity().setScale(2, RoundingMode.HALF_UP)).append("%");
+
+        Platform.runLater(() -> iterationResultObservable.set(
+                "Graph clustering finished at iteration = " + iteration + " after " + iterationsWithoutImprovement + " iterations without improvement\n" +
+                        "Algorithm execution time is " + duration + " milliseconds\n" +
+                        "Global best solution ~ " + globalBestSolution.setScale(4, RoundingMode.HALF_UP) + "\n\n" + clustersDocs + "\n" + clusteringMetrics
+        ));
     }
 
     private List<Ant> placeAnts(int documentsNumber) {

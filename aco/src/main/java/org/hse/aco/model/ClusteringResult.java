@@ -15,6 +15,10 @@ public class ClusteringResult {
         }
     }
 
+    public List<Cluster> getClusters() {
+        return clusters;
+    }
+
     public void addCluster(Cluster cluster) {
         clusters.add(cluster);
         totalDocuments += cluster.getSize();
@@ -52,7 +56,7 @@ public class ClusteringResult {
         return purity;
     }
 
-    private int getDocCntOfDominantClass(Cluster cluster) {
+    public int getDocCntOfDominantClass(Cluster cluster) {
         int cnt = 0;
         for (var clusterI : clusters) {
             cnt += clusterI.getClassToDocumentIds().getOrDefault(cluster.getDominantClass(), List.of()).size();

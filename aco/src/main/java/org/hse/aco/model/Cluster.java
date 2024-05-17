@@ -8,8 +8,8 @@ import java.util.Map;
 
 public class Cluster {
     public final int id;
+    public final List<Integer> documentIds = new ArrayList<>();
     private final Map<String, List<Integer>> classToDocumentIds;
-    private final List<Integer> documentIds = new ArrayList<>();
     private String dominantClass = null;
 
     public Cluster(int id, Map<String, List<Integer>> classToDocumentIds) {

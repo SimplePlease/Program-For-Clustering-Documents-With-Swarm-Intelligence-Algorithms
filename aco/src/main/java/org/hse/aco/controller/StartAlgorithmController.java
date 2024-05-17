@@ -1,21 +1,25 @@
 package org.hse.aco.controller;
 
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.stage.FileChooser;
+import javafx.stage.FileChooser.ExtensionFilter;
+import javafx.stage.Stage;
 import org.hse.aco.algorithm.fuzzy.FuzzyAlgorithm;
 import org.hse.aco.algorithm.graph.GraphAlgorithm;
-import org.hse.aco.model.AlgorithmType;
-import org.hse.aco.model.ClusteringResult;
-import org.hse.aco.model.DistanceFunction;
+import org.hse.aco.model.*;
 import org.tinylog.Logger;
 
+import java.io.File;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static javafx.scene.control.TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS;
 import static org.hse.aco.model.AlgorithmType.FUZZY;
 import static org.hse.aco.model.AlgorithmType.GRAPH;
 import static org.hse.aco.model.DistanceFunction.COSINE;
@@ -32,6 +36,7 @@ public class StartAlgorithmController {
     public static double EVAPORATION_COEF = 0.9;
     public static int PHEROMONE_DELTA_NUMERATOR = 40;
     public static double PHEROMONE_INIT = 0.20000000;
+    public static File DATASET_FILE = null;
     public static DistanceFunction DISTANCE_FUNCTION = COSINE;
     private static AlgorithmType ALGORITHM_TYPE = FUZZY;
 
@@ -65,6 +70,10 @@ public class StartAlgorithmController {
     private ComboBox<DistanceFunction> distanceFunctionBox;
     @FXML
     private ComboBox<AlgorithmType> algorithmBox;
+    @FXML
+    private Label datasetLabel;
+    @FXML
+    private TableView<TableClusterResult> clusteringResultTable;
 
     @FXML
     private void initialize() {
@@ -77,23 +86,80 @@ public class StartAlgorithmController {
         disableDistanceNumeratorIfNeeded();
         disableClustersAmountIfNeeded();
         disablePheromoneNumeratorIfNeeded();
+
+        datasetLabel.setText("Dataset file: \"svd_TFIDF2by50.csv\"");
+
+        TableColumn<TableClusterResult, Integer> idColumn = new TableColumn<>("Cluster id");
+        idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
+        clusteringResultTable.getColumns().add(idColumn);
+
+        TableColumn<TableClusterResult, String> dominantColumn = new TableColumn<>("Dominant class");
+        dominantColumn.setCellValueFactory(new PropertyValueFactory<>("dominantClass"));
+        clusteringResultTable.getColumns().add(dominantColumn);
+
+        TableColumn<TableClusterResult, Double> precisionColumn = new TableColumn<>("Precision");
+        precisionColumn.setCellValueFactory(new PropertyValueFactory<>("precision"));
+        clusteringResultTable.getColumns().add(precisionColumn);
+
+        TableColumn<TableClusterResult, Double> recallColumn = new TableColumn<>("Recall");
+        recallColumn.setCellValueFactory(new PropertyValueFactory<>("recall"));
+        clusteringResultTable.getColumns().add(recallColumn);
+
+        TableColumn<TableClusterResult, Double> fMeasureColumn = new TableColumn<>("F-measure");
+        fMeasureColumn.setCellValueFactory(new PropertyValueFactory<>("fMeasure"));
+        clusteringResultTable.getColumns().add(fMeasureColumn);
+
+        TableColumn<TableClusterResult, String> purityColumn = new TableColumn<>("Purity");
+        purityColumn.setCellValueFactory(new PropertyValueFactory<>("purity"));
+        clusteringResultTable.getColumns().add(purityColumn);
+
+        clusteringResultTable.setColumnResizePolicy(CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
     }
 
     @FXML
     protected void onRunClusteringClick() {
-        ClusteringResult result = null;
+        CompletableFuture<ClusteringResult> clusteringResultFuture;
         if (ALGORITHM_TYPE == FUZZY) {
-            executor.submit(fuzzyAlgorithm::clusterDocuments);
+            clusteringResultText.textProperty().bind(FuzzyAlgorithm.iterationResultObservable);
+            clusteringResultFuture = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return fuzzyAlgorithm.clusterDocuments();
+                } catch (Exception e) {
+                    Logger.warn(e);
+                    return null;
+                }
+            }, executor);
         } else {
-            executor.submit(graphAlgorithm::clusterDocuments);
+            clusteringResultText.textProperty().bind(GraphAlgorithm.iterationResultObservable);
+            clusteringResultFuture = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return graphAlgorithm.clusterDocuments();
+                } catch (Exception e) {
+                    Logger.warn(e);
+                    return null;
+                }
+            }, executor);
         }
+
+        clusteringResultFuture.thenAccept(this::displayClusteringTable);
+    }
+
+    void displayClusteringTable(ClusteringResult clusteringResult) {
+        clusteringResultTable.setVisible(true);
+
+        ObservableList<TableClusterResult> tableClusterResults = FXCollections.observableList(
+                clusteringResult.getClusters().stream().map(
+                        (Cluster cluster) -> new TableClusterResult(cluster, clusteringResult.getDocCntOfDominantClass(cluster))
+                ).toList()
+        );
+        clusteringResultTable.setItems(tableClusterResults);
     }
 
     @FXML
     void antsQuantityInserted(ActionEvent event) {
         runCatching(antsQuantityField, () -> {
             var value = Integer.parseInt(antsQuantityField.getText());
-            validate(value > 0);
+            validate(value > 0 && value <= 1000);
             ANTS_NUMBER = value;
         });
     }
@@ -192,12 +258,24 @@ public class StartAlgorithmController {
         disablePheromoneNumeratorIfNeeded();
     }
 
+    @FXML
+    void onChooseDatasetClick(ActionEvent event) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Choose dataset file");
+        fileChooser.getExtensionFilters().addAll(new ExtensionFilter("CSV files", "*.csv"));
+        File selectedFile = fileChooser.showOpenDialog(new Stage());
+        if (selectedFile != null) {
+            DATASET_FILE = selectedFile;
+            datasetLabel.setText("Dataset file: \"" + selectedFile.getName() + "\"");
+        }
+    }
+
     private void disableDistanceNumeratorIfNeeded() {
         distanceNumeratorField.setDisable(DISTANCE_FUNCTION == COSINE);
         if (DISTANCE_FUNCTION == COSINE) {
             distanceNumeratorField.setText("");
             distanceNumeratorField.setPromptText("Only for EUCLIDEAN distance function!");
-            distanceNumeratorField.setStyle("-fx-background-color: #404040; -fx-font-weight: bold; -fx-background-radius: 10;");
+            distanceNumeratorField.setStyle("-fx-background-color: #404040; -fx-background-radius: 10;");
         } else {
             DISTANCE_NUMERATOR = 10;
             distanceNumeratorField.setPromptText("10");
@@ -210,7 +288,7 @@ public class StartAlgorithmController {
         if (ALGORITHM_TYPE == GRAPH) {
             clustersQuantityField.setText("");
             clustersQuantityField.setPromptText("Only for FUZZY algorithm type!");
-            clustersQuantityField.setStyle("-fx-background-color: #404040; -fx-font-weight: bold; -fx-background-radius: 10;");
+            clustersQuantityField.setStyle("-fx-background-color: #404040; -fx-background-radius: 10;");
         } else {
             CLUSTERS_AMOUNT = 2;
             clustersQuantityField.setPromptText("2");
@@ -223,7 +301,7 @@ public class StartAlgorithmController {
         if (ALGORITHM_TYPE == FUZZY) {
             pheromoneNumeratorField.setText("");
             pheromoneNumeratorField.setPromptText("Only for GRAPH algorithm type!");
-            pheromoneNumeratorField.setStyle("-fx-background-color: #404040; -fx-font-weight: bold; -fx-background-radius: 10;");
+            pheromoneNumeratorField.setStyle("-fx-background-color: #404040; -fx-background-radius: 10;");
         } else {
             PHEROMONE_DELTA_NUMERATOR = 40;
             pheromoneNumeratorField.setPromptText("40");
