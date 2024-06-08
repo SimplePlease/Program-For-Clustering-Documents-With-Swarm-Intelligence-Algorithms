@@ -6,6 +6,7 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.input.KeyEvent;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Stage;
@@ -74,6 +75,10 @@ public class StartAlgorithmController {
     private Label datasetLabel;
     @FXML
     private TableView<TableClusterResult> clusteringResultTable;
+    @FXML
+    private Button runClusteringButton;
+    @FXML
+    private Button datasetChoserButton;
 
     @FXML
     private void initialize() {
@@ -87,7 +92,7 @@ public class StartAlgorithmController {
         disableClustersAmountIfNeeded();
         disablePheromoneNumeratorIfNeeded();
 
-        datasetLabel.setText("Dataset file: \"svd_TFIDF2by50.csv\"");
+        datasetLabel.setText("Dataset file: \"svd_TFIDF2by50_1.csv\"");
 
         TableColumn<TableClusterResult, Integer> idColumn = new TableColumn<>("Cluster id");
         idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
@@ -109,8 +114,8 @@ public class StartAlgorithmController {
         fMeasureColumn.setCellValueFactory(new PropertyValueFactory<>("fMeasure"));
         clusteringResultTable.getColumns().add(fMeasureColumn);
 
-        TableColumn<TableClusterResult, String> purityColumn = new TableColumn<>("Purity");
-        purityColumn.setCellValueFactory(new PropertyValueFactory<>("purity"));
+        TableColumn<TableClusterResult, String> purityColumn = new TableColumn<>("Entropy");
+        purityColumn.setCellValueFactory(new PropertyValueFactory<>("entropy"));
         clusteringResultTable.getColumns().add(purityColumn);
 
         clusteringResultTable.setColumnResizePolicy(CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
@@ -118,6 +123,7 @@ public class StartAlgorithmController {
 
     @FXML
     protected void onRunClusteringClick() {
+        disableAllInputs(true);
         CompletableFuture<ClusteringResult> clusteringResultFuture;
         if (ALGORITHM_TYPE == FUZZY) {
             clusteringResultText.textProperty().bind(FuzzyAlgorithm.iterationResultObservable);
@@ -153,37 +159,62 @@ public class StartAlgorithmController {
                 ).toList()
         );
         clusteringResultTable.setItems(tableClusterResults);
+        disableAllInputs(false);
+    }
+
+    private void disableAllInputs(boolean disable) {
+        runClusteringButton.setDisable(disable);
+        iterationsLimitField.setDisable(disable);
+        iterationsImprovementLimitField.setDisable(disable);
+        antsQuantityField.setDisable(disable);
+        pheromoneEvaporationCoefField.setDisable(disable);
+        pheromonePowerField.setDisable(disable);
+        distancePowerField.setDisable(disable);
+        pheromoneInitField.setDisable(disable);
+        distanceFunctionBox.setDisable(disable);
+        algorithmBox.setDisable(disable);
+        datasetChoserButton.setDisable(disable);
+
+        if (disable) {
+            distanceNumeratorField.setDisable(disable);
+            clustersQuantityField.setDisable(disable);
+            pheromoneNumeratorField.setDisable(disable);
+        } else {
+            disableDistanceNumeratorIfNeeded();
+            disableClustersAmountIfNeeded();
+            disablePheromoneNumeratorIfNeeded();
+        }
     }
 
     @FXML
-    void antsQuantityInserted(ActionEvent event) {
+    void antsQuantityInserted(KeyEvent event) {
         runCatching(antsQuantityField, () -> {
             var value = Integer.parseInt(antsQuantityField.getText());
-            validate(value > 0 && value <= 1000);
+            validate(value > 0 && value <= 10000);
             ANTS_NUMBER = value;
         });
     }
 
     @FXML
-    void iterationsImprovementLimitFieldInserted(ActionEvent event) {
+    void iterationsImprovementLimitFieldInserted(KeyEvent event) {
         runCatching(iterationsImprovementLimitField, () -> {
             var value = Integer.parseInt(iterationsImprovementLimitField.getText());
-            validate(value > 0);
+            validate(value > 0 && value <= 100000);
             ITERATIONS_WITHOUT_IMPROVEMENT_LIMIT = value;
         });
     }
 
     @FXML
-    void iterationsLimitInserted(ActionEvent event) {
+    void iterationsLimitInserted(KeyEvent event) {
         runCatching(iterationsLimitField, () -> {
             var value = Integer.parseInt(iterationsLimitField.getText());
-            validate(value > 0);
+            validate(value > 0 && value <= 100000);
             ITERATIONS_LIMIT = value;
         });
     }
 
     @FXML
-    void pheromoneEvaporationCoefInserted(ActionEvent event) {
+    void pheromoneEvaporationCoefInserted(KeyEvent event) {
         runCatching(pheromoneEvaporationCoefField, () -> {
             var value = Double.parseDouble(pheromoneEvaporationCoefField.getText());
             validate(value >= 0 && value <= 1);
@@ -192,55 +223,55 @@ public class StartAlgorithmController {
     }
 
     @FXML
-    void pheromonePowerInserted(ActionEvent event) {
+    void pheromonePowerInserted(KeyEvent event) {
         runCatching(pheromonePowerField, () -> {
             var value = Integer.parseInt(pheromonePowerField.getText());
-            validate(value >= 0);
+            validate(value >= 0 & value <= 1000);
             PHEROMONE_POWER = value;
         });
     }
 
     @FXML
-    void distancePowerInserted(ActionEvent event) {
+    void distancePowerInserted(KeyEvent event) {
         runCatching(distancePowerField, () -> {
             var value = Integer.parseInt(distancePowerField.getText());
-            validate(value >= 0);
+            validate(value >= 0 & value <= 1000);
             DISTANCE_POWER = value;
         });
     }
 
     @FXML
-    void distanceNumeratorInserted(ActionEvent event) {
+    void distanceNumeratorInserted(KeyEvent event) {
         runCatching(distanceNumeratorField, () -> {
             var value = Integer.parseInt(distanceNumeratorField.getText());
-            validate(value > 0);
+            validate(value > 0 & value <= 100000);
             DISTANCE_NUMERATOR = value;
         });
     }
 
     @FXML
-    void pheromoneNumeratorInserted(ActionEvent event) {
+    void pheromoneNumeratorInserted(KeyEvent event) {
         runCatching(pheromoneNumeratorField, () -> {
             var value = Integer.parseInt(pheromoneNumeratorField.getText());
-            validate(value > 0);
+            validate(value > 0 & value <= 100000);
             PHEROMONE_DELTA_NUMERATOR = value;
         });
     }
 
     @FXML
-    void pheromoneInitInserted(ActionEvent event) {
+    void pheromoneInitInserted(KeyEvent event) {
         runCatching(pheromoneInitField, () -> {
             var value = Double.parseDouble(pheromoneInitField.getText());
-            validate(value > 0);
+            validate(value > 0 & value <= 100000);
             PHEROMONE_INIT = value;
         });
     }
 
     @FXML
-    void clustersQuantityInserted(ActionEvent event) {
+    void clustersQuantityInserted(KeyEvent event) {
         runCatching(clustersQuantityField, () -> {
             var value = Integer.parseInt(clustersQuantityField.getText());
-            validate(value > 0);
+            validate(value > 0 & value <= 100);
             CLUSTERS_AMOUNT = value;
         });
     }

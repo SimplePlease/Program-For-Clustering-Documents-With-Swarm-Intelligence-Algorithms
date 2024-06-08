@@ -12,7 +12,7 @@ public class TableClusterResult {
     private final SimpleDoubleProperty precision;
     private final SimpleDoubleProperty recall;
     private final SimpleDoubleProperty fMeasure;
-    private final SimpleStringProperty purity;
+    private final SimpleDoubleProperty entropy;
 
     public TableClusterResult(Cluster cluster, int totalDocsOfDominantClass) {
         id = new SimpleIntegerProperty(cluster.id);
@@ -20,7 +20,7 @@ public class TableClusterResult {
         precision = new SimpleDoubleProperty(cluster.getPrecision().setScale(2, HALF_UP).doubleValue());
         recall = new SimpleDoubleProperty(cluster.getRecall(totalDocsOfDominantClass).setScale(2, HALF_UP).doubleValue());
         fMeasure = new SimpleDoubleProperty(cluster.getFMeasure(totalDocsOfDominantClass).setScale(2, HALF_UP).doubleValue());
-        purity = new SimpleStringProperty(cluster.getPurity(totalDocsOfDominantClass).setScale(2, HALF_UP) + "%");
+        entropy = new SimpleDoubleProperty(cluster.getEntropy().setScale(2, HALF_UP).doubleValue());
     }
 
     public int getId() {
@@ -43,8 +43,7 @@ public class TableClusterResult {
         return fMeasure.get();
     }
 
-    public String getPurity() {
-        return purity.get();
+    public double getEntropy() {
+        return entropy.get();
     }
-
 }

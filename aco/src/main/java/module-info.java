@@ -4,7 +4,7 @@ module org.hse.aco {
     requires org.tinylog.api;
     requires com.opencsv;
     requires java.desktop;
-
+    requires com.google.common;
 
     opens org.hse.aco to javafx.fxml;
     exports org.hse.aco;

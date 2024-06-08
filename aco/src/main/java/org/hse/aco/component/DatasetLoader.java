@@ -23,7 +23,7 @@ public class DatasetLoader {
             fileName = DATASET_FILE.getName();
             path = Path.of(DATASET_FILE.getPath());
         } else {
-            fileName = "svd_TFIDF2by50.csv";
+            fileName = "svd_TFIDF2by50_1.csv";
             path = Paths.get(ClassLoader.getSystemResource("org/hse/aco/dataset/" + fileName).toURI());
         }
 

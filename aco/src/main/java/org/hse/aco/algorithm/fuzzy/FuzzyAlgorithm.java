@@ -140,7 +140,7 @@ public class FuzzyAlgorithm {
         StringBuilder clusteringMetrics = new StringBuilder();
         clusteringMetrics.append("Accuracy = ").append(clusteringResult.getAccuracy().setScale(2, RoundingMode.HALF_UP))
                 .append("%, F-measure = ").append(clusteringResult.getFMeasure().setScale(2, RoundingMode.HALF_UP))
-                .append(", Purity = ").append(clusteringResult.getPurity().setScale(2, RoundingMode.HALF_UP)).append("%");
+                .append("%, Entropy = ").append(clusteringResult.getEntropy().setScale(2, RoundingMode.HALF_UP));
 
         Platform.runLater(() -> iterationResultObservable.set(
                 "Fuzzy clustering finished at iteration = " + iteration + " after " + iterationsWithoutImprovement + " iterations without improvement\n" +

@@ -35,6 +35,7 @@ dependencies {
   implementation("org.tinylog:tinylog-api:2.7.0")
   implementation("org.tinylog:tinylog-impl:2.7.0")
   implementation("com.opencsv:opencsv:5.9")
+  implementation("com.google.guava:guava:33.2.1-jre")
 
   testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
   testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")

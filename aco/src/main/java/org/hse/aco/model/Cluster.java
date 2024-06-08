@@ -1,5 +1,7 @@
 package org.hse.aco.model;
 
+import com.google.common.math.DoubleMath;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -57,11 +59,12 @@ public class Cluster {
     }
 
     public BigDecimal getEntropy() {
-        return BigDecimal.ZERO;
-    }
-
-    public BigDecimal getPurity(int totalDocsOfDominantClass) {
-        return BigDecimal.valueOf(totalDocsOfDominantClass).multiply(getPrecision());
+        final BigDecimal[] entropy = {BigDecimal.ZERO};
+        classToDocumentIds.forEach((className, docIds) -> {
+            var temp = (double) docIds.size() / getSize();
+            entropy[0] = entropy[0].add(BigDecimal.valueOf(temp * DoubleMath.log2(temp)));
+        });
+        return entropy[0];
     }
 
     public int getSize() {
@@ -83,8 +86,7 @@ public class Cluster {
                 .append(", Precision = ").append(getPrecision().setScale(2, RoundingMode.HALF_UP))
                 .append(", Recall = ").append(getRecall(totalDocsOfDominantClass).setScale(2, RoundingMode.HALF_UP))
                 .append(", F-measure = ").append(getFMeasure(totalDocsOfDominantClass).setScale(2, RoundingMode.HALF_UP))
-//                .append(", Entropy = ").append(getEntropy().setScale(2, RoundingMode.HALF_UP))
-                .append(", Purity = ").append(getPurity(totalDocsOfDominantClass).setScale(2, RoundingMode.HALF_UP)).append("%");
+                .append(", Entropy = ").append(getEntropy().setScale(4, RoundingMode.HALF_UP));
         return string.toString();
     }
 }

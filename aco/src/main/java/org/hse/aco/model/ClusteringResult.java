@@ -41,19 +41,11 @@ public class ClusteringResult {
     }
 
     public BigDecimal getEntropy() {
-        return BigDecimal.ZERO;
-    }
-
-    public BigDecimal getPurity() {
-        var purity = BigDecimal.ZERO;
+        var entropy = BigDecimal.ZERO;
         for (var cluster : clusters) {
-            purity = purity.add(
-                    cluster.getPurity(getDocCntOfDominantClass(cluster))
-                            .multiply(BigDecimal.valueOf(cluster.getSize()))
-                            .divide(BigDecimal.valueOf(totalDocuments), 128, RoundingMode.HALF_UP)
-            );
+            entropy = entropy.add(cluster.getEntropy().multiply(BigDecimal.valueOf(cluster.getSize())));
         }
-        return purity;
+        return entropy.divide(BigDecimal.valueOf(totalDocuments), 128, RoundingMode.HALF_UP);
     }
 
     public int getDocCntOfDominantClass(Cluster cluster) {
@@ -71,8 +63,7 @@ public class ClusteringResult {
         }
         string.append("Accuracy = ").append(getAccuracy().setScale(2, RoundingMode.HALF_UP)).append("%")
                 .append(", F-measure = ").append(getFMeasure().setScale(2, RoundingMode.HALF_UP))
-//                .append(", Entropy = ").append(getEntropy().setScale(2, RoundingMode.HALF_UP))
-                .append(", Purity = ").append(getPurity().setScale(2, RoundingMode.HALF_UP)).append("%\n");
+                .append(", Entropy = ").append(getEntropy().setScale(4, RoundingMode.HALF_UP));
         return string.toString();
     }
 }
